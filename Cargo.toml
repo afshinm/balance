@@ -1,0 +1,12 @@
+[package]
+name = "balance"
+description = "Simple TCP load-balancer"
+version = "0.1.0"
+authors = ["Afshin Mehrabani <afshin.meh@gmail.com>"]
+license = "GPL-3.0"
+
+[dependencies]
+tokio = "0.1"
+tokio-io = "0.1"
+futures = "0.1"
+clap = {version = "2.30", features = ["yaml"]}

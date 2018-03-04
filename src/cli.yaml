@@ -1,0 +1,20 @@
+name: balance
+version: "0.1"
+author: Afshin Mehrabani <afshin.meh@gmail.com>
+about: Simple TCP load balancer
+args:
+    - worker:
+        help: Set a backend
+        takes_value: true
+        multiple: true
+        required: true
+    - port:
+        short: p
+        long: port
+        takes_value: true
+        help: Defines the balancer port
+    - verbose:
+        short: v
+        long: verbose
+        multiple: true
+        help: Sets the level of verbosity
