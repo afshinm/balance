@@ -1,12 +1,12 @@
 use std::net::SocketAddr;
 
 #[derive(Clone)]
-pub struct Backend<'a> {
-    socket_addr: &'a SocketAddr,
+pub struct Backend {
+    socket_addr: SocketAddr,
 }
 
-impl<'a> Backend<'a> {
-    pub fn new(socket_addr: &'a SocketAddr) -> Self {
+impl Backend {
+    pub fn new(socket_addr: SocketAddr) -> Self {
         return Backend {
             socket_addr: socket_addr
         };
