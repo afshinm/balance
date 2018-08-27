@@ -1,36 +1,55 @@
-use futures::{Future, Stream};
-use tokio::net::TcpListener;
-use tokio::executor::current_thread;
-use tokio_io::{io, AsyncRead};
-use Balance;
+use futures::stream::Stream;
+use futures::{Future, Poll};
+use tokio_core::net::{TcpListener, TcpStream};
+use tokio_core::reactor::Core;
+use tokio_io::{AsyncRead, AsyncWrite};
+use tokio_io::io::{copy, shutdown};
+
+use Backend;
+use balance::Balance;
+
+use std::sync::Arc;
+use std::env;
+use std::net::{Shutdown, SocketAddr};
+use std::io::{self, Read, Write};
 
 pub struct Listener;
 
-
 impl Listener {
     pub fn start(balance: &Balance) {
-        let tcp = TcpListener::bind(&balance.socket_addr).unwrap();
+        // Create the event loop that will drive this server.
+        let mut l = Core::new().unwrap();
+        let handle = l.handle();
+
+        let tcp = TcpListener::bind(&balance.socket_addr, &handle).unwrap();
+        println!("Balance is running on {}", balance.socket_addr);
 
         // Iterate incoming connections
-        let server = tcp.incoming().for_each(|tcp| {
+        let server_stream = tcp.incoming().for_each(move |(server, server_addr)| {
             println!("connection");
 
-            // Split up the read and write halves
-            let (reader, writer) = tcp.split();
+            let raw_addr = format!("127.0.0.1:{}", 80);
+            let addr = raw_addr.parse::<SocketAddr>().unwrap();
 
-            // Copy the data back to the client
-            let conn = io::copy(reader, writer)
-                // print what happened
-                .map(|(n, _, _)| {
-                    println!("wrote {} bytes", n)
-                })
-            // Handle any errors
-            .map_err(|err| {
-                println!("IO error {:?}", err)
+            let backend_stream = TcpStream::connect(&addr, &handle);
+
+            backend_stream.and_then(|backend| {
+                println!("backend connected");
+
+                let backend_writer = MyTcpStream(Arc::new(backend));
+                let server_reader = MyTcpStream(Arc::new(server));
+
+                copy(server_reader, backend_writer)
             });
 
-            // Spawn the future as a concurrent task
-            current_thread::spawn(conn);
+            let msg = backend_stream.map(move |from_client| {
+                println!("client at wrote bytes and received  bytes")
+            }).map_err(|e| {
+                // Don't panic. Maybe the client just disconnected too soon.
+                println!("error: {}", e);
+            });
+
+            handle.spawn(msg);
 
             Ok(())
         })
@@ -38,11 +57,34 @@ impl Listener {
             println!("server error {:?}", err);
         });
 
-        // Spin up the server on the event loop
-        current_thread::run(|_| {
-            current_thread::spawn(server);
-            println!("Balance is running on {}", balance.socket_addr);
-        });
+        l.run(server_stream).unwrap();
     }
 }
 
+#[derive(Clone)]
+struct MyTcpStream(Arc<TcpStream>);
+
+impl Read for MyTcpStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        (&*self.0).read(buf)
+    }
+}
+
+impl Write for MyTcpStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        (&*self.0).write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl AsyncRead for MyTcpStream {}
+
+impl AsyncWrite for MyTcpStream {
+    fn shutdown(&mut self) -> Poll<(), io::Error> {
+        try!(self.0.shutdown(Shutdown::Write));
+        Ok(().into())
+    }
+}

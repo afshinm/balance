@@ -18,4 +18,9 @@ impl Balance {
     pub fn add_backend(&mut self, backend: Backend) {
         self.backends.push(backend);
     }
+
+    /*
+    pub fn next<'a>(self) -> &'a Backend {
+        &self.backends[0]
+    }*/
 }

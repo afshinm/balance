@@ -1,5 +1,6 @@
 extern crate futures;
 extern crate tokio;
+extern crate tokio_core;
 extern crate tokio_io;
 #[macro_use]
 extern crate clap;
@@ -26,7 +27,6 @@ fn main() {
     let raw_backends: Vec<&str> = matches.values_of("worker").unwrap().collect();
     let port: u16 = matches.value_of("port").unwrap_or("8789").parse::<u16>().unwrap();
 
-    // Bind the server's socket
     let raw_addr = format!("127.0.0.1:{}", port);
     let addr = raw_addr.parse::<SocketAddr>().unwrap();
 
